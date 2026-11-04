@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #FAF8F9;
+  --surface: #FFFFFF;
+  --surface-subtle: #F4F0F2;
+  --surface-hover: #ECE7EA;
+  --ink: #1B1420;
+  --ink-muted: #5C5464;
+  --ink-faint: #9A92A0;
+  --ink-border: #E6DFE4;
+  --accent: #E11D48;
+  --accent-light: #FFF1F2;
+  --glow: color-mix(in srgb, var(--accent) 18%, transparent);
+  --radius: 16px;
+  
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Serif display headings with italic accent */
+.font-display {
+  font-family: var(--font-serif);
+}
+
+.hero-radial {
+  background: radial-gradient(60% 50% at 50% 45%, var(--glow), var(--bg) 70%);
+}
+
+.hero-radial-subtle {
+  background: radial-gradient(50% 40% at 50% 30%, color-mix(in srgb, var(--accent) 10%, transparent), var(--bg) 80%);
+}
+
+/* Interactive Pill Styles */
+.pill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 9999px;
+  background-color: var(--surface);
+  border: 1px solid var(--ink-border);
+  color: var(--ink);
+  font-size: 0.885rem;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pill-chip:hover {
+  border-color: var(--ink-muted);
+  background-color: var(--surface-hover);
+}
+
+.pill-chip.active {
+  background-color: var(--ink);
+  color: #FFFFFF;
+  border-color: var(--ink);
+}
+
+.pill-chip.active-accent {
+  background-color: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9D2D7;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #BCB4BA;
+}
+
+/* Pulse animation for building profile state */
+@keyframes soft-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.985);
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.2s infinite ease-in-out;
+}
