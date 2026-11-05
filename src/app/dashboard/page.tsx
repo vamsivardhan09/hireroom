@@ -32,7 +32,7 @@ export default function CandidateDashboardPage() {
   const firstName = candidateProfile.name.split(' ')[0] || 'there';
 
   return (
-    <div className="min-h-screen bg-bg py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-10">
+    <div className="min-h-screen bg-bg py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
       {/* Welcome Header */}
       <div>
         <span className="text-xs font-semibold uppercase tracking-wider text-ink-faint">

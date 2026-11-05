@@ -24,7 +24,7 @@ import { useHireRoomStore } from '@/lib/store';
 export default function ChallengeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { listings, applications, candidateProfile } = useHireRoomStore();
+  const { listings, applications, candidateProfile, currentUser } = useHireRoomStore();
 
   const challenge = listings.find(l => l.id === params.id) || listings.find(l => l.type === 'challenge');
 
@@ -41,16 +41,22 @@ export default function ChallengeDetailPage() {
     );
   }
 
+  const isLoggedIn = Boolean(currentUser.id && currentUser.email);
+
   const existingApp = applications.find(
     a => a.listingId === challenge.id && a.candidateId === candidateProfile.userId
   );
 
   const handleEnterChallenge = () => {
+    if (!isLoggedIn) {
+      router.push(`/login?next=${encodeURIComponent(`/challenges/${challenge.id}`)}`);
+      return;
+    }
     router.push(`/challenges/${challenge.id}/build`);
   };
 
   return (
-    <div className="min-h-screen bg-bg py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-bg py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
       {/* Breadcrumb (as in Screenshot 7) */}
       <div>
         <Link

@@ -1,21 +1,24 @@
 # HireRoom Recovery & Build Progress
 
-**Current Step**: **R0 (Audit Completed)**  
+**Current Step**: **R1 (Access Rules & Roles Completed)**  
 **Last Updated**: 5 November 2026  
-**Status**: Audit finished (`docs/AUDIT.md` created). Ready for Prompt R1.
+**Status**: Step R1 complete (verified by Playwright test `tests/access-rules.spec.ts`: 18/18 cells passed). Ready for Step R2.
 
 ---
 
 ## 1. Summary of Current State
 
 - **R0 (Audit)**: ✅ **Completed** (verified by codebase inspection).
-- **Core Findings**:
-  - The visual system, brand design tokens, and frontend component shells are responsive and aligned with the specification.
-  - The application is currently running purely on in-memory React state (`store.tsx`) without real database operations.
-  - Resume parsing returns a static JavaScript fixture and ignores uploaded files.
-  - Route protection and authentication middleware are unbuilt.
-  - Several company names, role titles, and promotional text were copied from reference materials and must be purged.
-  - Page widths and navbar visibility during onboarding need standardization.
+- **R1 (Access Rules & Roles)**: ✅ **Completed** (verified by Playwright test: all 18 cells of the Section 3 access matrix pass).
+  - Built `@supabase/ssr` server and middleware clients with `getUser()`.
+  - Implemented `src/middleware.ts` enforcing the exact access matrix and preserving `next` query params.
+  - Removed candidate/company switcher from nav bar.
+  - Hid main nav during onboarding.
+  - Created `/login` and `/signup` with role selection.
+  - Standardized page container widths to `max-w-7xl` across Dashboard, Roles, Campfire, Challenges, and Companies.
+  - Created `/admin` operations console guarded by `ADMIN_EMAILS`.
+  - Created `/profile` for onboarded candidate profile updates.
+- **R2 (Real Resume Parsing)**: 🟡 **NEXT**.
 
 ---
 
@@ -24,8 +27,8 @@
 | Step | Objective | Primary Deliverables | Verification / Done When Criteria | Status |
 |---|---|---|---|---|
 | **R0** | **Audit first (no new features)** | Read all code, write `docs/AUDIT.md`, catalog mocks, trace resume bug, check env vars, write `docs/PROGRESS.md`. | Every page and route marked real or mocked; exact root causes documented. | **DONE** |
-| **R1** | **Access rules and roles** | Setup `@supabase/ssr`, server middleware (`proxy`), server-side `getUser()` checks, remove nav role toggle, hide nav during onboarding, normalize page widths, write Playwright tests. | Every cell in the docs/05 section 3 access table passes with Playwright. | **NEXT** |
-| **R2** | **Real resume parsing** | Implement Supabase Storage upload with hash, text extraction (`unpdf`/`pdfjs-dist` for PDF, `mammoth` for DOCX), OCR fallback, Claude API JSON schema extraction, Zod validation, skill normalization, confidence flagging, overwrite prompt, `parse_runs` audit logging. | Uploading an engineer's resume, a designer's resume, and a plain-text file produces three genuinely different profiles. Tested via Playwright/unit test. | **PENDING** |
+| **R1** | **Access rules and roles** | Setup `@supabase/ssr`, server middleware (`proxy`), server-side `getUser()` checks, remove nav role toggle, hide nav during onboarding, normalize page widths, write Playwright tests. | Every cell in the docs/05 section 3 access table passes with Playwright. | **DONE (verified by test)** |
+| **R2** | **Real resume parsing** | Implement Supabase Storage upload with hash, text extraction (`unpdf`/`pdfjs-dist` for PDF, `mammoth` for DOCX), OCR fallback, Claude API JSON schema extraction, Zod validation, skill normalization, confidence flagging, overwrite prompt, `parse_runs` audit logging. | Uploading an engineer's resume, a designer's resume, and a plain-text file produces three genuinely different profiles. Tested via Playwright/unit test. | **NEXT** |
 | **R3** | **Clean data and forms** | Purge all copied names (Persist, Corpvance, Face Search) and replace with fictional demo companies labeled "(Demo)"; rewrite dashboard banner copy; validate phones with `libphonenumber-js` (E.164, no duplicate `+91`, no leading 0); migrate forms to TanStack Form + Zod with auto-save drafts. | Zero reference names in codebase. Phone saved as `+91XXXXXXXXXX`. Forms validate inline. | **PENDING** |
 | **R4** | **Auth and emails** | Implement passwordless email sign-in / Google OAuth; build Supabase Send Email hook with React Email + Resend; implement `notify(event, payload)` with `email_outbox` table and cron worker guarded by `CRON_SECRET`; handle retries and unsubscriptions. | All 15 setup guide email events send and are logged in `email_outbox`. | **PENDING** |
 | **R5** | **Campfire for real** | Supabase Realtime Chat block with Postgres `messages` table; automatic room per listing; host controls (pinned announcements, mute, moderation); archive to read-only when listing closes. | Two separate browser contexts see live messages and history persists across page reloads. Verified via Playwright. | **PENDING** |

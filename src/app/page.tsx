@@ -42,18 +42,18 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <Link
-              href="/onboarding/candidate"
+              href="/roles"
               className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-7 py-3.5 bg-ink text-white rounded-full text-sm font-semibold hover:bg-ink/90 shadow-soft hover:shadow-card transition-all"
             >
-              <span>Candidate: Start Onboarding</span>
+              <span>Explore Roles & Challenges</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
 
             <Link
-              href="/company/post"
+              href="/signup"
               className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 bg-surface border border-ink-border text-ink rounded-full text-sm font-semibold hover:bg-surface-subtle shadow-soft transition-all"
             >
-              <span>Company: Post in 4 Questions</span>
+              <span>Post a Role in 4 Questions</span>
             </Link>
           </div>
 

@@ -162,6 +162,19 @@ function CandidateOnboardingContent() {
       targetRoles,
       referralSource,
     });
+
+    // Mark candidate onboarding complete in session cookie
+    const updatedUser = {
+      id: candidateProfile.userId || `usr-${Date.now()}`,
+      email: 'vamsi@hireroom.dev',
+      role: 'candidate' as const,
+      onboarding_completed: true,
+    };
+
+    document.cookie = `hireroom_test_user=${encodeURIComponent(
+      JSON.stringify(updatedUser)
+    )}; path=/; max-age=604800; SameSite=Lax`;
+
     router.push('/dashboard');
   };
 

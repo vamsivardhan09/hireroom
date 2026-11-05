@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Search,
   Briefcase,
@@ -17,13 +17,17 @@ import {
   ShieldCheck,
   X,
   Share2,
+  LogIn,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
 import { Listing, ListingType } from '@/types';
 
 function RolesDirectoryContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const { listings, applyToListing, applications, candidateProfile } = useHireRoomStore();
+  const { listings, applyToListing, applications, candidateProfile, currentUser } = useHireRoomStore();
+
+  const isLoggedIn = Boolean(currentUser.id && currentUser.email);
 
   const initialType = searchParams.get('type') as ListingType | null;
   const initialSelectedId = searchParams.get('id');
@@ -62,6 +66,11 @@ function RolesDirectoryContent() {
   }, [applications, candidateProfile.userId]);
 
   const handleApply = (listing: Listing) => {
+    if (!isLoggedIn) {
+      router.push(`/login?next=${encodeURIComponent(`/roles?id=${listing.id}`)}`);
+      return;
+    }
+
     applyToListing(listing.id, {
       'Why are you excited about this role?': screeningAnswer1 || 'Excited to contribute hands-on skills.',
       'Earliest joining date': screeningAnswer2 || 'Immediate',
@@ -351,12 +360,26 @@ function RolesDirectoryContent() {
                   </div>
 
                   {/* One-Tap Info Banner */}
-                  <div className="flex items-center space-x-3 p-3.5 bg-accent-light/50 rounded-2xl border border-accent/20">
-                    <Sparkles className="w-5 h-5 text-accent shrink-0" />
-                    <div className="text-xs text-ink">
-                      Applying as <span className="font-semibold">{candidateProfile.name}</span> with your verified profile and resume ({candidateProfile.skills.length} skills attached).
+                  {!isLoggedIn ? (
+                    <div className="flex items-center justify-between p-3.5 bg-amber-50 rounded-2xl border border-amber-200">
+                      <div className="text-xs text-amber-900">
+                        <span className="font-semibold">Sign in required to apply.</span> You will be returned to this listing immediately after sign in.
+                      </div>
+                      <Link
+                        href={`/login?next=${encodeURIComponent(`/roles?id=${activeListing.id}`)}`}
+                        className="px-3.5 py-1.5 bg-amber-800 text-white rounded-full text-xs font-semibold hover:bg-amber-900 shrink-0 ml-3"
+                      >
+                        Sign in to Apply
+                      </Link>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center space-x-3 p-3.5 bg-accent-light/50 rounded-2xl border border-accent/20">
+                      <Sparkles className="w-5 h-5 text-accent shrink-0" />
+                      <div className="text-xs text-ink">
+                        Applying as <span className="font-semibold">{candidateProfile.name}</span> with your verified profile and resume ({candidateProfile.skills.length} skills attached).
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
