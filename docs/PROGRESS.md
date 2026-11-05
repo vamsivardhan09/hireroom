@@ -1,8 +1,8 @@
 # HireRoom Recovery & Build Progress
 
-**Current Step**: **R4 (Auth and Emails)**  
+**Current Step**: **R5 (Campfire for Real)**  
 **Last Updated**: 5 November 2026  
-**Status**: Step R3 complete (verified by Playwright test `tests/clean-data-forms.spec.ts`: 7/7 tests passed; total suite 31/31 tests passed). Ready for Step R4.
+**Status**: Step R4 complete (verified by Playwright test `tests/auth-emails.spec.ts`: 9/9 tests passed; total suite 40/40 tests passed). Ready for Step R5.
 
 ---
 
@@ -32,7 +32,16 @@
   - Validated phone inputs with `libphonenumber-js` (MIT) via `src/lib/phone.ts` and `src/components/PhoneInputField.tsx`: country code selector, strips leading zero, prevents duplicate +91 prefixes, stores canonical E.164.
   - Implemented INR first currency display (`src/lib/currency.ts`) formatting Indian listings as `₹28L - ₹42L/yr`, `₹40,000/mo`, and `₹1,00,000 prize`.
   - Implemented draft auto-saving with TanStack Form + Zod across candidate onboarding, profile editing, company onboarding, job posting, and challenge submissions with `hireroom_draft_*` storage keys.
-- **R4 (Auth and Emails)**: 🟡 **IN PROGRESS**.
+- **R4 (Auth and Emails)**: ✅ **Completed** (verified by Playwright test: 9/9 tests in `tests/auth-emails.spec.ts` pass; total suite 40/40 tests pass).
+  - Implemented passwordless sign-in (email link, 6-digit OTP code, and Google OAuth) with role metadata and redirect preservation.
+  - Built Supabase Send Email Auth Hook (`/api/auth/send-email-hook`) guarded by `SEND_EMAIL_HOOK_SECRET` with React Email and Resend.
+  - Built unified `notify(event, payload)` with deduplication keys, in-app notification insertion, and `email_outbox` queuing.
+  - Implemented all 15 email templates (+ sign-in OTP) with React Email using HireRoom brand tokens (Dark Ink `#1B1420`, Crimson Accent `#E11D48`, Light Accent `#FFF1F2`, Serif display title, sans body, single primary CTA) and plain-text conversion via `@react-email/render`.
+  - Built cron outbox worker (`/api/cron/email-outbox`) guarded by `CRON_SECRET` with 3x retry tracking and failure status transition.
+  - Built Resend webhook (`/api/webhooks/resend`) for bounce and complaint suppressions.
+  - Built `/api/email/unsubscribe` and `/unsubscribe` settings page to respect non-essential preferences while preserving essential account notifications.
+  - Created Supabase Postgres migration in `supabase/migrations/20261105000000_auth_and_emails.sql` with RLS policies and indexes.
+- **R5 (Campfire for Real)**: 🟡 **READY TO START**.
 
 ---
 
@@ -44,7 +53,11 @@
 | **R1** | **Access rules and roles** | Setup `@supabase/ssr`, server middleware (`proxy`), server-side `getUser()` checks, remove nav role toggle, hide nav during onboarding, normalize page widths, write Playwright tests. | Every cell in the docs/05 section 3 access table passes with Playwright. | **DONE (verified by test)** |
 | **R2** | **Real resume parsing** | Implement Supabase Storage upload with hash, text extraction (`unpdf` for PDF, `mammoth` for DOCX), scan detection/OCR fallback, Claude API JSON schema extraction, Zod validation, skill normalization, confidence flagging, overwrite prompt, `parse_runs` audit logging. | Uploading an engineer's resume, a designer's resume, and a plain-text file produces three genuinely different profiles. Tested via Playwright/unit test. | **DONE (verified by test)** |
 | **R3** | **Clean data and forms** | Purge all copied names (Persist, Corpvance, Face Search) and replace with fictional demo companies labeled "(Demo)"; rewrite dashboard banner copy; validate phones with `libphonenumber-js` (E.164, no duplicate `+91`, no leading 0); migrate forms to TanStack Form + Zod with auto-save drafts. | Zero reference names in codebase. Phone saved as `+91XXXXXXXXXX`. Forms validate inline. | **DONE (verified by test)** |
-| **R4** | **Auth and emails** | Implement passwordless email sign-in / Google OAuth; build Supabase Send Email hook with React Email + Resend; implement `notify(event, payload)` with `email_outbox` table and cron worker guarded by `CRON_SECRET`; handle retries and unsubscriptions. | All 15 setup guide email events send and are logged in `email_outbox`. | **IN PROGRESS** |
+| **R4** | **Auth and emails** | Implement passwordless email sign-in / Google OAuth; build Supabase Send Email hook with React Email + Resend; implement `notify(event, payload)` with `email_outbox` table and cron worker guarded by `CRON_SECRET`; handle retries and unsubscriptions. | All 15 setup guide email events send and are logged in `email_outbox`. | **DONE (verified by test)** |
+| **R5** | **Campfire for real** | Supabase Realtime Chat block with Postgres `messages` table; automatic room per listing; host controls (pinned announcements, mute, moderation); archive to read-only when listing closes. | Two separate browser contexts see live messages and history persists across page reloads. Verified via Playwright. | **PENDING** |
+| **R6** | **Company side** | Real 3-input company onboarding, 4-question posting flow with live preview and Claude Prompt A listing generator, company dashboard (`My listings`, applicant inbox with Shortlist/Hire/Reject), public company microsite. | A company can sign up and post a live job in under 2 minutes, and shortlist an applicant in the database. | **PENDING** |
+| **R7** | **Challenges & submissions** | Challenge listings with 100-pt rubric; GitHub App repo picker; multi-version submission handling (demo URL, notes, repo, files); Prompt B applicant summary with strengths, gaps, and rubric scoring. | A candidate submits twice and the company inbox displays both versioned submissions with rubrics. | **PENDING** |
+| **R8** | **Admin, security & deploy** | Admin moderation console; company domain verification check; Row-Level Security (RLS) policies audited on every table; 12-line end-to-end test execution; Vercel deployment readiness. | Full 12-line end-to-end test from docs/02 passes with Playwright; zero RLS leaks. | **PENDING** |
 | **R5** | **Campfire for real** | Supabase Realtime Chat block with Postgres `messages` table; automatic room per listing; host controls (pinned announcements, mute, moderation); archive to read-only when listing closes. | Two separate browser contexts see live messages and history persists across page reloads. Verified via Playwright. | **PENDING** |
 | **R6** | **Company side** | Real 3-input company onboarding, 4-question posting flow with live preview and Claude Prompt A listing generator, company dashboard (`My listings`, applicant inbox with Shortlist/Hire/Reject), public company microsite. | A company can sign up and post a live job in under 2 minutes, and shortlist an applicant in the database. | **PENDING** |
 | **R7** | **Challenges & submissions** | Challenge listings with 100-pt rubric; GitHub App repo picker; multi-version submission handling (demo URL, notes, repo, files); Prompt B applicant summary with strengths, gaps, and rubric scoring. | A candidate submits twice and the company inbox displays both versioned submissions with rubrics. | **PENDING** |

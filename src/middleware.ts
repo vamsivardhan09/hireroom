@@ -6,12 +6,17 @@ export async function middleware(request: NextRequest) {
   const fullPath = `${pathname}${search}`;
   const response = NextResponse.next();
 
+  // 0. API routes have their own route-level auth / secrets (CRON_SECRET, webhook HMAC, getUser)
+  if (pathname.startsWith('/api')) {
+    return response;
+  }
+
   const user = await getAuthUser(request, response);
 
   // Helper redirect functions
   const redirectToLogin = () => {
     const loginUrl = new URL('/login', request.url);
-    if (pathname !== '/' && pathname !== '/login' && pathname !== '/signup') {
+    if (pathname !== '/' && pathname !== '/login' && pathname !== '/signup' && pathname !== '/unsubscribe') {
       loginUrl.searchParams.set('next', fullPath);
     }
     return NextResponse.redirect(loginUrl);
@@ -33,11 +38,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   };
 
-  // 1. PUBLIC LANDING & AUTH PAGES: /, /login, /signup
-  const isAuthOrLanding = pathname === '/' || pathname === '/login' || pathname === '/signup';
+  // 1. PUBLIC LANDING & AUTH & PREFERENCE PAGES: /, /login, /signup, /unsubscribe
+  const isAuthOrLanding =
+    pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname === '/unsubscribe';
   if (isAuthOrLanding) {
     if (!user) {
       return response; // Allowed for logged out
+    }
+    if (pathname === '/unsubscribe') {
+      return response; // Allowed for signed-in users too
     }
     if (!user.onboardingCompleted) {
       return redirectToOnboarding(user.role);
