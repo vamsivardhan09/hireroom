@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
 import { Listing, ListingType } from '@/types';
+import { formatCompensation } from '@/lib/currency';
 
 function RolesDirectoryContent() {
   const router = useRouter();
@@ -229,7 +230,7 @@ function RolesDirectoryContent() {
               <div className="pt-4 border-t border-ink-border flex items-center justify-between">
                 <div>
                   <div className="text-xs text-ink-faint">Compensation</div>
-                  <div className="text-xs sm:text-sm font-semibold text-ink">{listing.pay}</div>
+                  <div className="text-xs sm:text-sm font-semibold text-ink">{formatCompensation(listing.pay, listing.location)}</div>
                 </div>
 
                 {isChallenge ? (
@@ -271,7 +272,7 @@ function RolesDirectoryContent() {
                 <div>
                   <h3 className="font-semibold text-lg text-ink">{activeListing.title}</h3>
                   <div className="text-xs text-ink-muted">
-                    {activeListing.companyName} • {activeListing.location} • {activeListing.pay}
+                    {activeListing.companyName} • {activeListing.location} • {formatCompensation(activeListing.pay, activeListing.location)}
                   </div>
                 </div>
               </div>

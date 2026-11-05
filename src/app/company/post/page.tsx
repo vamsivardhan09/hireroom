@@ -23,6 +23,9 @@ import {
 import { useHireRoomStore } from '@/lib/store';
 import { ListingType, ScoringRubricItem } from '@/types';
 import { generateListingWithAI, getSuggestedSkillsForTitle } from '@/lib/ai';
+import { useAutosaveDraft } from '@/hooks/useAutosaveDraft';
+import { PostListingSchema } from '@/lib/validations';
+import { formatCompensation, isIndianListing } from '@/lib/currency';
 
 export default function CompanyPostListingPage() {
   const router = useRouter();
@@ -37,14 +40,14 @@ export default function CompanyPostListingPage() {
   const [whatTheyWillDo, setWhatTheyWillDo] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [customSkillInput, setCustomSkillInput] = useState('');
-  const [pay, setPay] = useState('₹15L - ₹22L/yr');
+  const [pay, setPay] = useState('₹18L - ₹28L/yr');
   const [workplaceMode, setWorkplaceMode] = useState<'Remote' | 'On-site' | 'Hybrid'>('Remote');
   const [locationCity, setLocationCity] = useState('Bengaluru');
   const [deadline, setDeadline] = useState('In 30 days');
 
   // Challenge specifics
   const [maxAttempts, setMaxAttempts] = useState(4);
-  const [prize, setPrize] = useState('$250 cash + 10% equity');
+  const [prize, setPrize] = useState('₹75,000 cash prize');
 
   // AI-generated draft state
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -53,12 +56,25 @@ export default function CompanyPostListingPage() {
   const [generatedWhatYouNeed, setGeneratedWhatYouNeed] = useState<string[]>([]);
   const [generatedRubric, setGeneratedRubric] = useState<ScoringRubricItem[]>([]);
   const [isPublished, setIsPublished] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({});
+
+  const { saveDraft, clearDraft, hasDraft, lastSaved } = useAutosaveDraft('post_listing', {
+    listingType,
+    title,
+    whatTheyWillDo,
+    skills,
+    pay,
+    workplaceMode,
+    locationCity,
+    deadline,
+    prize,
+  });
 
   const activeCompany = companies[0] || {
-    id: 'comp-1',
-    name: 'Persist Ventures',
-    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
-    oneLiner: 'Venture studio building high-conviction AI & creator economy tools.',
+    id: 'comp-kavach',
+    name: 'Kavach Systems (Demo)',
+    logo: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=100&auto=format&fit=crop&q=80',
+    oneLiner: 'Zero-trust cryptographic infrastructure and access orchestration for distributed cloud systems.',
     verified: true,
   };
 
@@ -113,8 +129,31 @@ export default function CompanyPostListingPage() {
   };
 
   const handlePublishListing = () => {
-    const fullPay = listingType === 'challenge' ? prize : pay;
     const fullLoc = workplaceMode === 'Remote' ? 'Remote' : `${locationCity} (${workplaceMode})`;
+    const rawPay = listingType === 'challenge' ? prize : pay;
+    const formattedPay = formatCompensation(rawPay, fullLoc);
+
+    const validation = PostListingSchema.safeParse({
+      title: title || 'Full-Stack Developer',
+      type: listingType,
+      summary: whatTheyWillDo || `Join ${activeCompany.name} to build great software.`,
+      pay: formattedPay,
+      location: fullLoc,
+      isRemote: workplaceMode === 'Remote',
+      skills: skills.length > 0 ? skills : suggestedSkills.slice(0, 4),
+      deadline,
+    });
+
+    if (!validation.success) {
+      const fieldErrors: Record<string, string> = {};
+      validation.error.issues.forEach(issue => {
+        fieldErrors[issue.path[0] as string] = issue.message;
+      });
+      setValidationErrors(fieldErrors);
+      return;
+    }
+
+    clearDraft();
 
     const newListing = addListing({
       companyId: activeCompany.id,
@@ -124,11 +163,11 @@ export default function CompanyPostListingPage() {
       type: listingType,
       title: title || 'Full-Stack Developer',
       summary: whatTheyWillDo || `Join ${activeCompany.name} to build great software.`,
-      aboutRole: generatedAbout,
+      aboutRole: generatedAbout || `Join ${activeCompany.name} to build high-impact software.`,
       whatYouWillDo: generatedWhatYouWillDo,
       whatYouNeed: generatedWhatYouNeed,
       skills: skills.length > 0 ? skills : suggestedSkills.slice(0, 4),
-      pay: fullPay,
+      pay: formattedPay,
       location: fullLoc,
       isRemote: workplaceMode === 'Remote',
       deadline,
@@ -137,8 +176,8 @@ export default function CompanyPostListingPage() {
       deliverables: listingType === 'challenge' ? ['Working repository', 'Live deployment', 'Video demo'] : undefined,
       scoringChecklist: listingType === 'challenge' ? generatedRubric : undefined,
       maxAttempts: listingType === 'challenge' ? maxAttempts : undefined,
-      prize: listingType === 'challenge' ? prize : undefined,
-      perks: listingType === 'challenge' ? ['Claude Code', 'Cursor', 'AWS credits'] : undefined,
+      prize: listingType === 'challenge' ? formattedPay : undefined,
+      perks: listingType === 'challenge' ? ['API credits', 'Architecture review'] : undefined,
     });
 
     setIsPublished(true);

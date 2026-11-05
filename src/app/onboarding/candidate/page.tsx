@@ -26,6 +26,9 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
+import { PhoneInputField } from '@/components/PhoneInputField';
+import { useAutosaveDraft } from '@/hooks/useAutosaveDraft';
+import { CandidateProfileSchema } from '@/lib/validations';
 
 function CandidateOnboardingContent() {
   const router = useRouter();
@@ -51,10 +54,8 @@ function CandidateOnboardingContent() {
   const [name, setName] = useState(candidateProfile.name || '');
   const [headline, setHeadline] = useState(candidateProfile.headline || '');
   const [location, setLocation] = useState(candidateProfile.location || 'Bengaluru, India');
-  
-  // Format initial phone: drop leading 0 and strip +91 if present for input display
-  const initialPhoneDigits = (candidateProfile.phone || '').replace(/^\+91\s*/, '').replace(/^0+/, '');
-  const [phoneDigits, setPhoneDigits] = useState(initialPhoneDigits);
+  const [phone, setPhone] = useState(candidateProfile.phone || '');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({});
 
   const [experience, setExperience] = useState(candidateProfile.experience || '0-1 years');
   const [availability, setAvailability] = useState(candidateProfile.availability || 'Immediate (within 15 days)');
@@ -68,6 +69,20 @@ function CandidateOnboardingContent() {
   const [githubUrl, setGithubUrl] = useState(candidateProfile.githubUrl || '');
   const [portfolioUrl, setPortfolioUrl] = useState(candidateProfile.portfolioUrl || '');
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
+
+  // Autosaved draft hook
+  const { saveDraft, clearDraft, hasDraft, lastSaved } = useAutosaveDraft('candidate_onboarding', {
+    name,
+    headline,
+    location,
+    phone,
+    experience,
+    availability,
+    about,
+    skills,
+    targetRoles,
+    referralSource,
+  });
 
   const referralOptions = [
     { label: 'Google', icon: 'G' },
@@ -123,14 +138,30 @@ function CandidateOnboardingContent() {
       }
 
       const data = json.data;
-      if (data.name) setName(data.name);
-      if (data.headline) setHeadline(data.headline);
-      if (data.location) setLocation(data.location);
-      if (data.phone) {
-        setPhoneDigits(data.phone.replace(/^\+91\s*/, '').replace(/^0+/, ''));
+      if (data.name) {
+        setName(data.name);
+        saveDraft({ name: data.name });
       }
-      if (data.about) setAbout(data.about);
-      if (data.skills && Array.isArray(data.skills)) setSkills(data.skills);
+      if (data.headline) {
+        setHeadline(data.headline);
+        saveDraft({ headline: data.headline });
+      }
+      if (data.location) {
+        setLocation(data.location);
+        saveDraft({ location: data.location });
+      }
+      if (data.phone) {
+        setPhone(data.phone);
+        saveDraft({ phone: data.phone });
+      }
+      if (data.about) {
+        setAbout(data.about);
+        saveDraft({ about: data.about });
+      }
+      if (data.skills && Array.isArray(data.skills)) {
+        setSkills(data.skills);
+        saveDraft({ skills: data.skills });
+      }
       if (data.education && Array.isArray(data.education) && data.education.length > 0) {
         setEducation(data.education);
       }
@@ -176,29 +207,57 @@ function CandidateOnboardingContent() {
   };
 
   const removeSkill = (skillToRemove: string) => {
-    setSkills(skills.filter(s => s !== skillToRemove));
+    const updated = skills.filter(s => s !== skillToRemove);
+    setSkills(updated);
+    saveDraft({ skills: updated });
   };
 
   const addSkill = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && newSkillInput.trim()) {
       e.preventDefault();
       if (!skills.includes(newSkillInput.trim())) {
-        setSkills([...skills, newSkillInput.trim()]);
+        const updated = [...skills, newSkillInput.trim()];
+        setSkills(updated);
+        saveDraft({ skills: updated });
       }
       setNewSkillInput('');
     }
   };
 
   const handleSaveProfile = () => {
-    // Normalize phone with +91 and no leading 0
-    const cleanDigits = phoneDigits.replace(/^0+/, '').trim();
-    const formattedPhone = cleanDigits ? `+91 ${cleanDigits}` : '';
+    // Validate with Zod
+    const validationResult = CandidateProfileSchema.safeParse({
+      name,
+      headline,
+      location,
+      phone,
+      experience,
+      availability,
+      about: about || 'Experienced engineer building high-impact software.',
+      skills,
+      targetRoles,
+      linkedinUrl,
+      githubUrl,
+      portfolioUrl,
+    });
+
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {};
+      validationResult.error.issues.forEach(issue => {
+        const fieldName = issue.path[0] as string;
+        fieldErrors[fieldName] = issue.message;
+      });
+      setValidationErrors(fieldErrors);
+      return;
+    }
+
+    clearDraft();
 
     updateCandidateProfile({
       name,
       headline,
       location,
-      phone: formattedPhone,
+      phone,
       experience,
       availability,
       about,
@@ -250,12 +309,19 @@ function CandidateOnboardingContent() {
             />
           </div>
 
-          <button
-            onClick={() => setCurrentStep(5)}
-            className="text-xs text-ink-muted hover:text-ink font-medium tracking-wide"
-          >
-            Skip for now
-          </button>
+          <div className="flex items-center space-x-3">
+            {hasDraft && (
+              <span className="text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full font-medium border border-emerald-200">
+                Draft autosaved
+              </span>
+            )}
+            <button
+              onClick={() => setCurrentStep(5)}
+              className="text-xs text-ink-muted hover:text-ink font-medium tracking-wide"
+            >
+              Skip for now
+            </button>
+          </div>
         </div>
 
         {/* STEP 1: Source */}
@@ -457,7 +523,7 @@ function CandidateOnboardingContent() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                    Name
+                    Name <span className="text-accent">*</span>
                   </label>
                   {lowConfidenceFields.includes('name') && (
                     <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
@@ -469,16 +535,23 @@ function CandidateOnboardingContent() {
                   type="text"
                   placeholder="Your full name"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={e => {
+                    setName(e.target.value);
+                    saveDraft({ name: e.target.value });
+                    if (validationErrors.name) setValidationErrors(prev => ({ ...prev, name: undefined }));
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm font-medium focus:outline-none focus:border-ink transition-colors"
                 />
+                {validationErrors.name && (
+                  <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.name}</p>
+                )}
               </div>
 
               {/* Headline */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                    Headline
+                    Headline <span className="text-accent">*</span>
                   </label>
                   {lowConfidenceFields.includes('headline') && (
                     <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
@@ -490,16 +563,23 @@ function CandidateOnboardingContent() {
                   type="text"
                   placeholder="e.g. Full-Stack Engineer, Product Designer"
                   value={headline}
-                  onChange={e => setHeadline(e.target.value)}
+                  onChange={e => {
+                    setHeadline(e.target.value);
+                    saveDraft({ headline: e.target.value });
+                    if (validationErrors.headline) setValidationErrors(prev => ({ ...prev, headline: undefined }));
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink transition-colors"
                 />
+                {validationErrors.headline && (
+                  <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.headline}</p>
+                )}
               </div>
 
               {/* Location */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                    Location
+                    Location <span className="text-accent">*</span>
                   </label>
                   {lowConfidenceFields.includes('location') && (
                     <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
@@ -512,17 +592,24 @@ function CandidateOnboardingContent() {
                   <input
                     type="text"
                     value={location}
-                    onChange={e => setLocation(e.target.value)}
+                    onChange={e => {
+                      setLocation(e.target.value);
+                      saveDraft({ location: e.target.value });
+                      if (validationErrors.location) setValidationErrors(prev => ({ ...prev, location: undefined }));
+                    }}
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink transition-colors"
                   />
                 </div>
+                {validationErrors.location && (
+                  <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.location}</p>
+                )}
               </div>
 
-              {/* Phone with +91 Indian code and NO duplicate prefix or leading 0 */}
+              {/* Phone with libphonenumber-js validation, country picker, and no duplicate +91 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                    Phone
+                    Phone <span className="text-accent">*</span>
                   </label>
                   {lowConfidenceFields.includes('phone') && (
                     <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
@@ -530,21 +617,17 @@ function CandidateOnboardingContent() {
                     </span>
                   )}
                 </div>
-                <div className="flex space-x-2">
-                  <div className="flex items-center px-3 py-2.5 rounded-xl border border-ink-border bg-surface-subtle text-xs font-semibold text-ink shrink-0">
-                    <span className="mr-1.5">🇮🇳</span> +91
-                  </div>
-                  <input
-                    type="tel"
-                    placeholder="9876543210"
-                    value={phoneDigits}
-                    onChange={e => {
-                      const clean = e.target.value.replace(/^\+91\s*/, '').replace(/^0+/, '');
-                      setPhoneDigits(clean);
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink transition-colors"
-                  />
-                </div>
+                <PhoneInputField
+                  value={phone}
+                  onChange={(e164Val) => {
+                    setPhone(e164Val);
+                    saveDraft({ phone: e164Val });
+                    if (validationErrors.phone) {
+                      setValidationErrors(prev => ({ ...prev, phone: undefined }));
+                    }
+                  }}
+                  error={validationErrors.phone}
+                />
               </div>
 
               {/* Experience & Availability */}

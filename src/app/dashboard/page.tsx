@@ -101,18 +101,18 @@ export default function CandidateDashboardPage() {
         </div>
       </div>
 
-      {/* Promo Banner (Screenshot 6: "Building something? Pitch your idea. Get resources to build.") */}
+      {/* Platform Banner (Prompt R3: Promises only what HireRoom offers) */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#201726] via-[#2F1E33] to-[#4A283C] text-white p-7 sm:p-9 shadow-card">
         <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-25 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-400 via-rose-500 to-transparent pointer-events-none" />
         <div className="relative z-10 max-w-xl">
           <span className="text-[11px] font-bold uppercase tracking-wider text-accent-light/80 block mb-2">
-            Accelerator
+            Hire by Proof
           </span>
           <h2 className="font-display text-2xl sm:text-3xl font-normal tracking-tight mb-2">
-            Building something <span className="italic text-rose-300">extraordinary</span>?
+            Prove your skills with <span className="italic text-rose-300">working code</span>
           </h2>
-          <p className="text-xs sm:text-sm text-gray-300 mb-5">
-            Pitch your idea directly to venture studios. Get technical guidance, compute credits, and non-dilutive grant resources.
+          <p className="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed">
+            Skip the resume filter. Enter engineering challenges scored on transparent 100-point rubrics, join listing Campfires, and earn direct interview fast-tracks.
           </p>
           <Link
             href="/roles?type=challenge"

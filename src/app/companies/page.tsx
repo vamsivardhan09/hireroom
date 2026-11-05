@@ -29,6 +29,7 @@ export default function CompaniesDirectoryPage() {
           return (
             <div
               key={company.id}
+              data-company-id={company.id}
               className="bg-surface rounded-3xl border border-ink-border p-6 shadow-soft hover:shadow-card hover:border-ink-muted transition-all flex flex-col justify-between space-y-4"
             >
               <div>

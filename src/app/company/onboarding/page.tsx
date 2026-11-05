@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, Globe, ShieldCheck, ArrowRight, Sparkles, MapPin, Users } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
+import { useAutosaveDraft } from '@/hooks/useAutosaveDraft';
+import { CompanyOnboardingSchema } from '@/lib/validations';
 
 export default function CompanyOnboardingPage() {
   const router = useRouter();
@@ -16,6 +18,16 @@ export default function CompanyOnboardingPage() {
   const [isRemote, setIsRemote] = useState(true);
   const [size, setSize] = useState<'1-10' | '11-50' | '51-200' | '200+'>('11-50');
   const [isEnriching, setIsEnriching] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({});
+
+  const { saveDraft, clearDraft, hasDraft, lastSaved } = useAutosaveDraft('company_onboarding', {
+    website,
+    name,
+    oneLiner,
+    city,
+    isRemote,
+    size,
+  });
 
   // Auto-enrich simulation from website URL
   const handleWebsiteBlur = () => {
@@ -28,27 +40,57 @@ export default function CompanyOnboardingPage() {
           const capitalized = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
           setName(capitalized);
           setOneLiner(`Next-generation developer infrastructure & intelligent products at ${capitalized}.`);
+          saveDraft({
+            name: capitalized,
+            oneLiner: `Next-generation developer infrastructure & intelligent products at ${capitalized}.`,
+          });
         } catch {
           setName('Tech Studio');
           setOneLiner('Building high-conviction tools and AI-powered workflows.');
+          saveDraft({
+            name: 'Tech Studio',
+            oneLiner: 'Building high-conviction tools and AI-powered workflows.',
+          });
         }
         setIsEnriching(false);
-      }, 600);
+      }, 500);
     }
   };
 
   const handleComplete = (e: React.FormEvent) => {
     e.preventDefault();
-    const created = addCompany({
-      name: name || 'Innovative Labs',
-      website: website || 'https://labs.co',
-      logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
-      oneLiner: oneLiner || 'Building high-growth intelligent software and workflows.',
+
+    const result = CompanyOnboardingSchema.safeParse({
+      website,
+      name,
+      oneLiner,
       city,
       isRemote,
       size,
-      verified: true,
-      status: 'active',
+    });
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach(issue => {
+        const fieldName = issue.path[0] as string;
+        fieldErrors[fieldName] = issue.message;
+      });
+      setValidationErrors(fieldErrors);
+      return;
+    }
+
+    clearDraft();
+
+    const created = addCompany({
+      name,
+      website: website.startsWith('http') ? website : `https://${website}`,
+      logo: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=100&auto=format&fit=crop&q=80',
+      oneLiner,
+      city,
+      isRemote,
+      size,
+      verified: false, // Rule 3: Verified only when database says true
+      status: 'pending',
     });
 
     switchRole('company');
@@ -105,7 +147,7 @@ export default function CompanyOnboardingPage() {
             </label>
             <input
               type="text"
-              placeholder="e.g. Persist Ventures"
+              placeholder="e.g. Kavach Systems (Demo)"
               value={name}
               onChange={e => setName(e.target.value)}
               required

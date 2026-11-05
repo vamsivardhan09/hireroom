@@ -39,9 +39,9 @@ function LoginContent() {
     setCurrentUser({
       id: testUser.id,
       email: testUser.email,
-      name: role === 'company' ? 'Acme Labs' : 'Vamsi Vardhan Mukku',
+      name: role === 'company' ? 'Kavach Systems Team' : email.split('@')[0],
       role,
-      companyId: role === 'company' ? 'comp-1' : undefined,
+      companyId: role === 'company' ? 'comp-kavach' : undefined,
     });
 
     setTimeout(() => {

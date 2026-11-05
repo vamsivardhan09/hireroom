@@ -14,24 +14,27 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
+import { PhoneInputField } from '@/components/PhoneInputField';
+import { CandidateProfileSchema } from '@/lib/validations';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { candidateProfile, updateCandidateProfile } = useHireRoomStore();
 
-  const [name, setName] = useState(candidateProfile.name);
-  const [headline, setHeadline] = useState(candidateProfile.headline);
-  const [location, setLocation] = useState(candidateProfile.location);
-  const [phone, setPhone] = useState(candidateProfile.phone);
-  const [experience, setExperience] = useState(candidateProfile.experience);
-  const [availability, setAvailability] = useState(candidateProfile.availability);
-  const [about, setAbout] = useState(candidateProfile.about);
-  const [skills, setSkills] = useState<string[]>(candidateProfile.skills);
+  const [name, setName] = useState(candidateProfile.name || '');
+  const [headline, setHeadline] = useState(candidateProfile.headline || '');
+  const [location, setLocation] = useState(candidateProfile.location || 'Bengaluru, India');
+  const [phone, setPhone] = useState(candidateProfile.phone || '');
+  const [experience, setExperience] = useState(candidateProfile.experience || '0-1 years');
+  const [availability, setAvailability] = useState(candidateProfile.availability || 'Immediate (within 15 days)');
+  const [about, setAbout] = useState(candidateProfile.about || '');
+  const [skills, setSkills] = useState<string[]>(candidateProfile.skills || []);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState(candidateProfile.linkedinUrl || '');
   const [githubUrl, setGithubUrl] = useState(candidateProfile.githubUrl || '');
   const [portfolioUrl, setPortfolioUrl] = useState(candidateProfile.portfolioUrl || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({});
 
   const removeSkill = (skillToRemove: string) => {
     setSkills(skills.filter(s => s !== skillToRemove));
@@ -49,6 +52,32 @@ export default function ProfilePage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const result = CandidateProfileSchema.safeParse({
+      name,
+      headline,
+      location,
+      phone,
+      experience,
+      availability,
+      about: about || 'Experienced developer with verified code deliverables.',
+      skills,
+      targetRoles: candidateProfile.targetRoles?.length ? candidateProfile.targetRoles : ['Full-time employment'],
+      linkedinUrl,
+      githubUrl,
+      portfolioUrl,
+    });
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach(issue => {
+        const fieldName = issue.path[0] as string;
+        fieldErrors[fieldName] = issue.message;
+      });
+      setValidationErrors(fieldErrors);
+      return;
+    }
+
     updateCandidateProfile({
       name,
       headline,
@@ -100,42 +129,77 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-              Full Name
+              Full Name <span className="text-accent">*</span>
             </label>
             <input
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => {
+                setName(e.target.value);
+                if (validationErrors.name) setValidationErrors(prev => ({ ...prev, name: undefined }));
+              }}
               className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm font-medium focus:outline-none focus:border-ink"
             />
+            {validationErrors.name && (
+              <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.name}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-              Location
+              Location <span className="text-accent">*</span>
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-ink-muted absolute left-3.5 top-3" />
               <input
                 type="text"
                 value={location}
-                onChange={e => setLocation(e.target.value)}
+                onChange={e => {
+                  setLocation(e.target.value);
+                  if (validationErrors.location) setValidationErrors(prev => ({ ...prev, location: undefined }));
+                }}
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink"
               />
             </div>
+            {validationErrors.location && (
+              <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.location}</p>
+            )}
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-            Headline
-          </label>
-          <input
-            type="text"
-            value={headline}
-            onChange={e => setHeadline(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink"
-          />
+        {/* Phone & Headline */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
+              Headline <span className="text-accent">*</span>
+            </label>
+            <input
+              type="text"
+              value={headline}
+              onChange={e => {
+                setHeadline(e.target.value);
+                if (validationErrors.headline) setValidationErrors(prev => ({ ...prev, headline: undefined }));
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink"
+            />
+            {validationErrors.headline && (
+              <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.headline}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
+              Phone Number <span className="text-accent">*</span>
+            </label>
+            <PhoneInputField
+              value={phone}
+              onChange={e164Val => {
+                setPhone(e164Val);
+                if (validationErrors.phone) setValidationErrors(prev => ({ ...prev, phone: undefined }));
+              }}
+              error={validationErrors.phone}
+            />
+          </div>
         </div>
 
         {/* About */}

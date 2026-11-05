@@ -20,6 +20,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
+import { formatCompensation } from '@/lib/currency';
 
 export default function ChallengeDetailPage() {
   const params = useParams();
@@ -99,7 +100,7 @@ export default function ChallengeDetailPage() {
           {challenge.prize && (
             <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-surface border border-ink-border text-xs font-semibold text-ink shadow-xs">
               <Coins className="w-4 h-4 text-amber-500" />
-              <span>CASH PRIZE <strong className="text-amber-600">{challenge.prize}</strong></span>
+              <span>CASH PRIZE <strong className="text-amber-600">{formatCompensation(challenge.prize, challenge.location)}</strong></span>
             </div>
           )}
           {challenge.equity && (
@@ -254,7 +255,7 @@ export default function ChallengeDetailPage() {
                 Reward
               </span>
               <div className="text-2xl font-display font-medium text-ink">
-                {challenge.prize || '$250 cash'}
+                {formatCompensation(challenge.prize || challenge.pay, challenge.location)}
               </div>
               {challenge.equity && (
                 <div className="text-xs font-semibold text-rose-600">

@@ -20,6 +20,8 @@ import {
   Check,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
+import { useAutosaveDraft } from '@/hooks/useAutosaveDraft';
+import { ChallengeSubmissionSchema } from '@/lib/validations';
 
 export default function ChallengeAssignmentHubPage() {
   const params = useParams();
@@ -33,18 +35,25 @@ export default function ChallengeAssignmentHubPage() {
     a => a.listingId === challenge.id && a.candidateId === candidateProfile.userId
   ) || applications[0];
 
-  // Submission Form States
-  const [demoUrl, setDemoUrl] = useState('https://fanbase-os-demo.vercel.app');
-  const [repoUrl, setRepoUrl] = useState(
-    candidateProfile.githubRepos?.[0]?.url || 'https://github.com/vamsivardhan09/fanbase-operating-system'
-  );
-  const [videoUrl, setVideoUrl] = useState('https://loom.com/share/fanbase-os-v1-walkthrough');
-  const [notes, setNotes] = useState(
-    'Built Next.js 15 app with Supabase auth and AI inbox triage. Test account: demo@creator.com / pass: creator123'
-  );
+  // Submission Form States (Clean initial state with autosave support)
+  const [demoUrl, setDemoUrl] = useState('');
+  const [repoUrl, setRepoUrl] = useState(candidateProfile.githubRepos?.[0]?.url || '');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [notes, setNotes] = useState('');
   const [version, setVersion] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({});
+
+  const { saveDraft, clearDraft, hasDraft, lastSaved } = useAutosaveDraft(
+    `assignment_submission_${challenge.id}`,
+    {
+      demoUrl,
+      repoUrl,
+      videoUrl,
+      notes,
+    }
+  );
 
   const stages = [
     { num: 1, label: 'Applied', state: 'completed' },
@@ -56,6 +65,23 @@ export default function ChallengeAssignmentHubPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const result = ChallengeSubmissionSchema.safeParse({
+      demoUrl,
+      repoUrl,
+      videoUrl,
+      notes,
+    });
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach(issue => {
+        fieldErrors[issue.path[0] as string] = issue.message;
+      });
+      setValidationErrors(fieldErrors);
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -70,8 +96,10 @@ export default function ChallengeAssignmentHubPage() {
         notes,
       });
 
+      clearDraft();
       setIsSubmitting(false);
       setSubmittedSuccess(true);
+      setVersion(prev => prev + 1);
 
       confetti({
         particleCount: 120,
@@ -186,7 +214,9 @@ export default function ChallengeAssignmentHubPage() {
           <div>
             <div className="text-xs font-semibold text-ink">Connected GitHub repo</div>
             <div className="text-[11px] text-ink-muted">
-              vamsivardhan09/fanbase-operating-system • So the team can follow your build
+              {candidateProfile.githubRepos?.[0]?.name
+                ? `${candidateProfile.githubUsername || 'candidate'}/${candidateProfile.githubRepos[0].name}`
+                : 'Connect your repository'} • So the team can follow your build
             </div>
           </div>
         </div>
@@ -287,6 +317,14 @@ export default function ChallengeAssignmentHubPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {hasDraft && (
+                  <div className="flex justify-end">
+                    <span className="text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full font-medium border border-emerald-200">
+                      Draft autosaved {lastSaved ? `• ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </span>
+                  </div>
+                )}
+
                 {/* Live Demo URL */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
@@ -296,13 +334,19 @@ export default function ChallengeAssignmentHubPage() {
                     <Globe className="w-4 h-4 text-ink-muted absolute left-3.5 top-3" />
                     <input
                       type="url"
-                      required
                       placeholder="https://your-assignment-demo.com"
                       value={demoUrl}
-                      onChange={e => setDemoUrl(e.target.value)}
+                      onChange={e => {
+                        setDemoUrl(e.target.value);
+                        saveDraft({ demoUrl: e.target.value });
+                        if (validationErrors.demoUrl) setValidationErrors(prev => ({ ...prev, demoUrl: undefined }));
+                      }}
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-xs text-ink focus:outline-none focus:border-ink"
                     />
                   </div>
+                  {validationErrors.demoUrl && (
+                    <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.demoUrl}</p>
+                  )}
                 </div>
 
                 {/* Repository URL */}
@@ -314,13 +358,19 @@ export default function ChallengeAssignmentHubPage() {
                     <Github className="w-4 h-4 text-ink-muted absolute left-3.5 top-3" />
                     <input
                       type="url"
-                      required
                       placeholder="https://github.com/you/assignment"
                       value={repoUrl}
-                      onChange={e => setRepoUrl(e.target.value)}
+                      onChange={e => {
+                        setRepoUrl(e.target.value);
+                        saveDraft({ repoUrl: e.target.value });
+                        if (validationErrors.repoUrl) setValidationErrors(prev => ({ ...prev, repoUrl: undefined }));
+                      }}
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-xs text-ink focus:outline-none focus:border-ink"
                     />
                   </div>
+                  {validationErrors.repoUrl && (
+                    <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.repoUrl}</p>
+                  )}
                 </div>
 
                 {/* Walkthrough Video */}
@@ -340,10 +390,17 @@ export default function ChallengeAssignmentHubPage() {
                       type="url"
                       placeholder="Loom or YouTube URL"
                       value={videoUrl}
-                      onChange={e => setVideoUrl(e.target.value)}
+                      onChange={e => {
+                        setVideoUrl(e.target.value);
+                        saveDraft({ videoUrl: e.target.value });
+                        if (validationErrors.videoUrl) setValidationErrors(prev => ({ ...prev, videoUrl: undefined }));
+                      }}
                       className="text-xs px-3 py-1 rounded-lg border border-ink-border bg-surface w-48 text-ink focus:outline-none"
                     />
                   </div>
+                  {validationErrors.videoUrl && (
+                    <p className="text-xs font-medium text-rose-600 mt-1">{validationErrors.videoUrl}</p>
+                  )}
                 </div>
 
                 {/* Notes (optional) */}
@@ -359,7 +416,10 @@ export default function ChallengeAssignmentHubPage() {
                     maxLength={5000}
                     placeholder="Anything reviewers should know — login, setup, focus areas..."
                     value={notes}
-                    onChange={e => setNotes(e.target.value)}
+                    onChange={e => {
+                      setNotes(e.target.value);
+                      saveDraft({ notes: e.target.value });
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-xs text-ink leading-relaxed focus:outline-none focus:border-ink resize-none"
                   />
                 </div>
