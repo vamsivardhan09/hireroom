@@ -1,15 +1,15 @@
 # HireRoom Recovery & Build Progress
 
-**Current Step**: **R1 (Access Rules & Roles Completed)**  
+**Current Step**: **R3 (Clean Data and Forms)**  
 **Last Updated**: 5 November 2026  
-**Status**: Step R1 complete (verified by Playwright test `tests/access-rules.spec.ts`: 18/18 cells passed). Ready for Step R2.
+**Status**: Step R2 complete (verified by Playwright test `tests/resume-parser.spec.ts`: 6/6 tests passed; total suite 24/24 tests passed). Ready for Step R3.
 
 ---
 
 ## 1. Summary of Current State
 
-- **R0 (Audit)**: ✅ **Completed** (verified by codebase inspection).
-- **R1 (Access Rules & Roles)**: ✅ **Completed** (verified by Playwright test: all 18 cells of the Section 3 access matrix pass).
+- **R0 (Audit)**: ✅ **Completed** (verified by codebase inspection and `docs/AUDIT.md`).
+- **R1 (Access Rules & Roles)**: ✅ **Completed** (verified by Playwright test: all 18 cells of the Section 3 access matrix pass in `tests/access-rules.spec.ts`).
   - Built `@supabase/ssr` server and middleware clients with `getUser()`.
   - Implemented `src/middleware.ts` enforcing the exact access matrix and preserving `next` query params.
   - Removed candidate/company switcher from nav bar.
@@ -18,7 +18,13 @@
   - Standardized page container widths to `max-w-7xl` across Dashboard, Roles, Campfire, Challenges, and Companies.
   - Created `/admin` operations console guarded by `ADMIN_EMAILS`.
   - Created `/profile` for onboarded candidate profile updates.
-- **R2 (Real Resume Parsing)**: 🟡 **NEXT**.
+- **R2 (Real Resume Parsing)**: ✅ **Completed** (verified by Playwright test: 6/6 tests in `tests/resume-parser.spec.ts` pass, total 24/24 tests pass).
+  - Built schema and skill normalization map in `src/lib/resume/schema.ts` (capped at 25 skills, canonical alias mapping).
+  - Built parsing engine in `src/lib/resume/parser.ts` using `unpdf` and `mammoth` for text extraction, scan detection, Claude API structured JSON schema extraction, SHA-256 hashing, and `parse_runs` audit logging.
+  - Built API route `src/app/api/resume/parse/route.ts` with 10 MB limit and MIME validation.
+  - Updated candidate onboarding (`src/app/onboarding/candidate/page.tsx`) with file upload, overwrite confirmation modal (*"Replace your profile with this resume?"*), low-confidence flags ("check this"), and phone formatting without duplicate prefix.
+  - Verified 3 distinct resumes return 3 genuinely different profiles, scanned PDF throws clear error without falling back to mock data, and `parse_runs` audit log records all parsing operations.
+- **R3 (Clean Data and Forms)**: 🟡 **IN PROGRESS**.
 
 ---
 
@@ -28,8 +34,8 @@
 |---|---|---|---|---|
 | **R0** | **Audit first (no new features)** | Read all code, write `docs/AUDIT.md`, catalog mocks, trace resume bug, check env vars, write `docs/PROGRESS.md`. | Every page and route marked real or mocked; exact root causes documented. | **DONE** |
 | **R1** | **Access rules and roles** | Setup `@supabase/ssr`, server middleware (`proxy`), server-side `getUser()` checks, remove nav role toggle, hide nav during onboarding, normalize page widths, write Playwright tests. | Every cell in the docs/05 section 3 access table passes with Playwright. | **DONE (verified by test)** |
-| **R2** | **Real resume parsing** | Implement Supabase Storage upload with hash, text extraction (`unpdf`/`pdfjs-dist` for PDF, `mammoth` for DOCX), OCR fallback, Claude API JSON schema extraction, Zod validation, skill normalization, confidence flagging, overwrite prompt, `parse_runs` audit logging. | Uploading an engineer's resume, a designer's resume, and a plain-text file produces three genuinely different profiles. Tested via Playwright/unit test. | **NEXT** |
-| **R3** | **Clean data and forms** | Purge all copied names (Persist, Corpvance, Face Search) and replace with fictional demo companies labeled "(Demo)"; rewrite dashboard banner copy; validate phones with `libphonenumber-js` (E.164, no duplicate `+91`, no leading 0); migrate forms to TanStack Form + Zod with auto-save drafts. | Zero reference names in codebase. Phone saved as `+91XXXXXXXXXX`. Forms validate inline. | **PENDING** |
+| **R2** | **Real resume parsing** | Implement Supabase Storage upload with hash, text extraction (`unpdf` for PDF, `mammoth` for DOCX), scan detection/OCR fallback, Claude API JSON schema extraction, Zod validation, skill normalization, confidence flagging, overwrite prompt, `parse_runs` audit logging. | Uploading an engineer's resume, a designer's resume, and a plain-text file produces three genuinely different profiles. Tested via Playwright/unit test. | **DONE (verified by test)** |
+| **R3** | **Clean data and forms** | Purge all copied names (Persist, Corpvance, Face Search) and replace with fictional demo companies labeled "(Demo)"; rewrite dashboard banner copy; validate phones with `libphonenumber-js` (E.164, no duplicate `+91`, no leading 0); migrate forms to TanStack Form + Zod with auto-save drafts. | Zero reference names in codebase. Phone saved as `+91XXXXXXXXXX`. Forms validate inline. | **IN PROGRESS** |
 | **R4** | **Auth and emails** | Implement passwordless email sign-in / Google OAuth; build Supabase Send Email hook with React Email + Resend; implement `notify(event, payload)` with `email_outbox` table and cron worker guarded by `CRON_SECRET`; handle retries and unsubscriptions. | All 15 setup guide email events send and are logged in `email_outbox`. | **PENDING** |
 | **R5** | **Campfire for real** | Supabase Realtime Chat block with Postgres `messages` table; automatic room per listing; host controls (pinned announcements, mute, moderation); archive to read-only when listing closes. | Two separate browser contexts see live messages and history persists across page reloads. Verified via Playwright. | **PENDING** |
 | **R6** | **Company side** | Real 3-input company onboarding, 4-question posting flow with live preview and Claude Prompt A listing generator, company dashboard (`My listings`, applicant inbox with Shortlist/Hire/Reject), public company microsite. | A company can sign up and post a live job in under 2 minutes, and shortlist an applicant in the database. | **PENDING** |

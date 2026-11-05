@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
@@ -22,9 +22,10 @@ import {
   Globe,
   Github,
   Linkedin,
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { useHireRoomStore } from '@/lib/store';
-import { parseResumeFile } from '@/lib/ai';
 
 function CandidateOnboardingContent() {
   const router = useRouter();
@@ -37,45 +38,36 @@ function CandidateOnboardingContent() {
   // Form states
   const [referralSource, setReferralSource] = useState<string>(candidateProfile.referralSource || '');
   const [targetRoles, setTargetRoles] = useState<string[]>(candidateProfile.targetRoles || ['Full-time employment']);
-  const [uploadedFileName, setUploadedFileName] = useState<string>(candidateProfile.resumeFileName || 'vamsi_vardhan_resume.pdf');
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [isParsing, setIsParsing] = useState<boolean>(false);
-  const [parsingProgressText, setParsingProgressText] = useState<string>('Pulling out your experience...');
+  const [parsingProgressText, setParsingProgressText] = useState<string>('Reading what you’ve done so far...');
+  const [parsingError, setParsingError] = useState<string | null>(null);
+
+  // Overwrite prompt states
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showOverwriteModal, setShowOverwriteModal] = useState<boolean>(false);
 
   // Step 5 Editable Profile States
-  const [name, setName] = useState(candidateProfile.name);
-  const [headline, setHeadline] = useState(candidateProfile.headline);
-  const [location, setLocation] = useState(candidateProfile.location);
-  const [phone, setPhone] = useState(candidateProfile.phone);
-  const [experience, setExperience] = useState(candidateProfile.experience);
-  const [availability, setAvailability] = useState(candidateProfile.availability);
-  const [about, setAbout] = useState(candidateProfile.about);
-  const [skills, setSkills] = useState<string[]>(candidateProfile.skills);
+  const [name, setName] = useState(candidateProfile.name || '');
+  const [headline, setHeadline] = useState(candidateProfile.headline || '');
+  const [location, setLocation] = useState(candidateProfile.location || 'Bengaluru, India');
+  
+  // Format initial phone: drop leading 0 and strip +91 if present for input display
+  const initialPhoneDigits = (candidateProfile.phone || '').replace(/^\+91\s*/, '').replace(/^0+/, '');
+  const [phoneDigits, setPhoneDigits] = useState(initialPhoneDigits);
+
+  const [experience, setExperience] = useState(candidateProfile.experience || '0-1 years');
+  const [availability, setAvailability] = useState(candidateProfile.availability || 'Immediate (within 15 days)');
+  const [about, setAbout] = useState(candidateProfile.about || '');
+  const [skills, setSkills] = useState<string[]>(candidateProfile.skills || []);
+  const [education, setEducation] = useState<{ degree: string; institution: string; year: string }[]>(
+    candidateProfile.education || []
+  );
   const [newSkillInput, setNewSkillInput] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState(candidateProfile.linkedinUrl || '');
-  const [githubUrl, setGithubUrl] = useState(candidateProfile.githubUrl || 'https://github.com/vamsivardhan09');
+  const [githubUrl, setGithubUrl] = useState(candidateProfile.githubUrl || '');
   const [portfolioUrl, setPortfolioUrl] = useState(candidateProfile.portfolioUrl || '');
-
-  // Step 4 simulation timer when entering step 4
-  useEffect(() => {
-    if (currentStep === 4) {
-      setIsParsing(true);
-      const timer1 = setTimeout(() => {
-        setParsingProgressText('Extracting verified skills & project history...');
-      }, 700);
-      const timer2 = setTimeout(() => {
-        setParsingProgressText('Formatting your HireRoom profile card...');
-      }, 1400);
-      const timer3 = setTimeout(() => {
-        setIsParsing(false);
-        setCurrentStep(5);
-      }, 2100);
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-      };
-    }
-  }, [currentStep]);
+  const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
 
   const referralOptions = [
     { label: 'Google', icon: 'G' },
@@ -109,27 +101,78 @@ function CandidateOnboardingContent() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFileName(file.name);
-      setCurrentStep(4);
-      const parsed = await parseResumeFile(file.name, name);
-      if (parsed.name) setName(parsed.name);
-      if (parsed.headline) setHeadline(parsed.headline);
-      if (parsed.about) setAbout(parsed.about);
-      if (parsed.skills) setSkills(parsed.skills);
+  const executeParse = async (file: File) => {
+    setUploadedFileName(file.name);
+    setCurrentStep(4);
+    setIsParsing(true);
+    setParsingError(null);
+    setParsingProgressText('Extracting verified text from file...');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/resume/parse', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error || 'Failed to extract resume text.');
+      }
+
+      const data = json.data;
+      if (data.name) setName(data.name);
+      if (data.headline) setHeadline(data.headline);
+      if (data.location) setLocation(data.location);
+      if (data.phone) {
+        setPhoneDigits(data.phone.replace(/^\+91\s*/, '').replace(/^0+/, ''));
+      }
+      if (data.about) setAbout(data.about);
+      if (data.skills && Array.isArray(data.skills)) setSkills(data.skills);
+      if (data.education && Array.isArray(data.education) && data.education.length > 0) {
+        setEducation(data.education);
+      }
+      if (data.links?.linkedin) setLinkedinUrl(data.links.linkedin);
+      if (data.links?.github) setGithubUrl(data.links.github);
+      if (data.links?.portfolio) setPortfolioUrl(data.links.portfolio);
+      if (data.lowConfidenceFields) setLowConfidenceFields(data.lowConfidenceFields);
+
+      setIsParsing(false);
+      setCurrentStep(5);
+    } catch (err: any) {
+      setIsParsing(false);
+      setParsingError(err.message || 'Could not parse resume file. You can enter details manually.');
+      setCurrentStep(5);
     }
   };
 
-  const handleSimulatedUpload = async () => {
-    setUploadedFileName('vamsi_vardhan_resume.pdf');
-    setCurrentStep(4);
-    const parsed = await parseResumeFile('vamsi_vardhan_resume.pdf', name);
-    if (parsed.name) setName(parsed.name);
-    if (parsed.headline) setHeadline(parsed.headline);
-    if (parsed.about) setAbout(parsed.about);
-    if (parsed.skills) setSkills(parsed.skills);
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check if profile already has data -> show overwrite prompt
+    const hasExistingData = skills.length > 0 || about.length > 0 || name.length > 0;
+    if (hasExistingData) {
+      setPendingFile(file);
+      setShowOverwriteModal(true);
+    } else {
+      executeParse(file);
+    }
+  };
+
+  const confirmOverwrite = () => {
+    setShowOverwriteModal(false);
+    if (pendingFile) {
+      executeParse(pendingFile);
+      setPendingFile(null);
+    }
+  };
+
+  const cancelOverwrite = () => {
+    setShowOverwriteModal(false);
+    setPendingFile(null);
   };
 
   const removeSkill = (skillToRemove: string) => {
@@ -147,15 +190,20 @@ function CandidateOnboardingContent() {
   };
 
   const handleSaveProfile = () => {
+    // Normalize phone with +91 and no leading 0
+    const cleanDigits = phoneDigits.replace(/^0+/, '').trim();
+    const formattedPhone = cleanDigits ? `+91 ${cleanDigits}` : '';
+
     updateCandidateProfile({
       name,
       headline,
       location,
-      phone,
+      phone: formattedPhone,
       experience,
       availability,
       about,
       skills,
+      education,
       linkedinUrl,
       githubUrl,
       portfolioUrl,
@@ -166,7 +214,7 @@ function CandidateOnboardingContent() {
     // Mark candidate onboarding complete in session cookie
     const updatedUser = {
       id: candidateProfile.userId || `usr-${Date.now()}`,
-      email: 'vamsi@hireroom.dev',
+      email: 'candidate@test.com',
       role: 'candidate' as const,
       onboarding_completed: true,
     };
@@ -179,7 +227,7 @@ function CandidateOnboardingContent() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] hero-radial py-12 px-4 sm:px-6 flex flex-col justify-between">
+    <div className="min-h-screen hero-radial py-12 px-4 sm:px-6 flex flex-col justify-between">
       {/* Top Header / Progress Container */}
       <div className="max-w-2xl mx-auto w-full">
         {/* Top Progress bar and Skip link */}
@@ -203,7 +251,7 @@ function CandidateOnboardingContent() {
           </div>
 
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => setCurrentStep(5)}
             className="text-xs text-ink-muted hover:text-ink font-medium tracking-wide"
           >
             Skip for now
@@ -326,33 +374,24 @@ function CandidateOnboardingContent() {
                 <UploadCloud className="w-7 h-7 text-accent" />
               </div>
               <h3 className="text-base font-semibold text-ink mb-1">Drop your resume here</h3>
-              <p className="text-xs text-ink-muted mb-6">PDF or Word · up to 10 MB</p>
+              <p className="text-xs text-ink-muted mb-6">PDF, DOCX, or text · up to 10 MB</p>
 
               <label className="inline-flex items-center space-x-2 px-6 py-2.5 bg-ink text-white rounded-full text-sm font-semibold hover:bg-ink/90 shadow-soft cursor-pointer transition-all">
                 <span>Choose resume</span>
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleFileUpload}
+                  accept=".pdf,.doc,.docx,.txt,.md"
+                  onChange={handleFileSelection}
                   className="hidden"
                 />
               </label>
-
-              <div className="mt-4">
-                <button
-                  onClick={handleSimulatedUpload}
-                  className="text-xs text-accent hover:underline font-medium"
-                >
-                  Or click here to load sample verified resume
-                </button>
-              </div>
             </div>
 
             <button
               onClick={() => setCurrentStep(5)}
               className="text-xs text-ink-muted hover:text-ink font-medium"
             >
-              Skip for now
+              Skip and fill manually
             </button>
           </div>
         )}
@@ -393,20 +432,42 @@ function CandidateOnboardingContent() {
                 Profile ready
               </span>
               <h1 className="font-display text-4xl sm:text-5xl text-ink font-normal tracking-tight mt-1 mb-2">
-                Here’s what we found, <span className="italic text-accent">{name.split(' ')[0]}</span>
+                Here’s what we found{name ? `, ` : ''}<span className="italic text-accent">{name.split(' ')[0]}</span>
               </h1>
               <p className="text-sm text-ink-muted">Tweak anything that looks off, then continue.</p>
             </div>
+
+            {/* Parsing error notification (if parsing failed, allows manual entry without silent mock fallback) */}
+            {parsingError && (
+              <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start space-x-3 text-xs text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Notice: </span>
+                  {parsingError}
+                  <div className="text-[11px] text-amber-700 mt-1">
+                    You can complete your profile details manually below and continue.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Single Card of Stacked Labeled Fields */}
             <div className="bg-surface rounded-3xl border border-ink-border p-6 sm:p-8 shadow-card space-y-5">
               {/* Name */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  Name
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    Name
+                  </label>
+                  {lowConfidenceFields.includes('name') && (
+                    <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                      check this
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
+                  placeholder="Your full name"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm font-medium focus:outline-none focus:border-ink transition-colors"
@@ -415,11 +476,19 @@ function CandidateOnboardingContent() {
 
               {/* Headline */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  Headline
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    Headline
+                  </label>
+                  {lowConfidenceFields.includes('headline') && (
+                    <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                      check this
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
+                  placeholder="e.g. Full-Stack Engineer, Product Designer"
                   value={headline}
                   onChange={e => setHeadline(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink transition-colors"
@@ -428,9 +497,16 @@ function CandidateOnboardingContent() {
 
               {/* Location */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  Location
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    Location
+                  </label>
+                  {lowConfidenceFields.includes('location') && (
+                    <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                      check this
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-ink-muted absolute left-3.5 top-3" />
                   <input
@@ -442,19 +518,30 @@ function CandidateOnboardingContent() {
                 </div>
               </div>
 
-              {/* Phone with +91 Indian code */}
+              {/* Phone with +91 Indian code and NO duplicate prefix or leading 0 */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  Phone
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    Phone
+                  </label>
+                  {lowConfidenceFields.includes('phone') && (
+                    <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                      check this
+                    </span>
+                  )}
+                </div>
                 <div className="flex space-x-2">
                   <div className="flex items-center px-3 py-2.5 rounded-xl border border-ink-border bg-surface-subtle text-xs font-semibold text-ink shrink-0">
                     <span className="mr-1.5">🇮🇳</span> +91
                   </div>
                   <input
                     type="tel"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    placeholder="9876543210"
+                    value={phoneDigits}
+                    onChange={e => {
+                      const clean = e.target.value.replace(/^\+91\s*/, '').replace(/^0+/, '');
+                      setPhoneDigits(clean);
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm focus:outline-none focus:border-ink transition-colors"
                   />
                 </div>
@@ -496,11 +583,19 @@ function CandidateOnboardingContent() {
 
               {/* About */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  About
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    About
+                  </label>
+                  {lowConfidenceFields.includes('about') && (
+                    <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                      check this
+                    </span>
+                  )}
+                </div>
                 <textarea
                   rows={4}
+                  placeholder="Summary of experience and proof of work..."
                   value={about}
                   onChange={e => setAbout(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-ink-border bg-surface text-ink text-sm leading-relaxed focus:outline-none focus:border-ink resize-none"
@@ -509,10 +604,15 @@ function CandidateOnboardingContent() {
 
               {/* Skills (Removable Chips) */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
-                  Skills
-                </label>
-                <div className="flex flex-wrap gap-2 p-3 rounded-2xl border border-ink-border bg-surface-subtle/50 mb-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    Skills ({skills.length}/25)
+                  </label>
+                  {skills.length === 0 && (
+                    <span className="text-[10px] text-ink-muted">Add at least one skill</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 p-3 rounded-2xl border border-ink-border bg-surface-subtle/50 mb-2 min-h-12">
                   {skills.map(skill => (
                     <span
                       key={skill}
@@ -520,6 +620,7 @@ function CandidateOnboardingContent() {
                     >
                       <span>{skill}</span>
                       <button
+                        type="button"
                         onClick={() => removeSkill(skill)}
                         className="ml-1.5 text-ink-faint hover:text-accent focus:outline-none"
                       >
@@ -538,15 +639,25 @@ function CandidateOnboardingContent() {
                 />
               </div>
 
-              {/* Education */}
+              {/* Education (Dynamic) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink-faint mb-1.5">
                   Education
                 </label>
-                <div className="p-3.5 rounded-2xl border border-ink-border bg-surface text-xs text-ink space-y-1.5">
-                  <div className="font-semibold">B.Tech in Information Technology — SV College of Engineering, Tirupati (2023–2026)</div>
-                  <div className="text-ink-muted">Diploma in Engineering — Nuzvid Polytechnic College, Vijayawada (2020–2023)</div>
-                </div>
+                {education.length > 0 ? (
+                  <div className="p-3.5 rounded-2xl border border-ink-border bg-surface text-xs text-ink space-y-2">
+                    {education.map((edu, idx) => (
+                      <div key={idx} className="pb-1 border-b border-ink-border/50 last:border-none last:pb-0">
+                        <div className="font-semibold text-ink">{edu.degree}</div>
+                        <div className="text-ink-muted">{edu.institution} {edu.year ? `(${edu.year})` : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl border border-ink-border/50 bg-surface-subtle text-xs text-ink-muted">
+                    No degree specified in resume. You can add one anytime in profile settings.
+                  </div>
+                )}
               </div>
 
               {/* Links */}
@@ -581,7 +692,7 @@ function CandidateOnboardingContent() {
                       type="url"
                       value={portfolioUrl}
                       onChange={e => setPortfolioUrl(e.target.value)}
-                      placeholder="yoursite.com"
+                      placeholder="https://yoursite.com"
                       className="w-full text-xs text-ink focus:outline-none bg-transparent"
                     />
                   </div>
@@ -609,6 +720,41 @@ function CandidateOnboardingContent() {
           </div>
         )}
       </div>
+
+      {/* Overwrite Confirmation Modal (as required by Rule 6 & docs/05 section 2) */}
+      {showOverwriteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-surface rounded-3xl p-6 shadow-float border border-ink-border space-y-4">
+            <div className="flex items-center space-x-3 text-ink">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-base">Replace your profile with this resume?</h3>
+            </div>
+
+            <p className="text-xs text-ink-muted leading-relaxed">
+              You already have profile details entered. Uploading <strong className="text-ink">{pendingFile?.name}</strong> will overwrite previously parsed fields with the newly extracted data.
+            </p>
+
+            <div className="pt-2 flex items-center justify-end space-x-3">
+              <button
+                type="button"
+                onClick={cancelOverwrite}
+                className="px-4 py-2 rounded-full text-xs font-semibold text-ink-muted hover:text-ink hover:bg-surface-subtle transition-all"
+              >
+                Keep Existing Profile
+              </button>
+              <button
+                type="button"
+                onClick={confirmOverwrite}
+                className="px-5 py-2.5 rounded-full bg-ink text-white text-xs font-semibold hover:bg-ink/90 shadow-soft transition-all"
+              >
+                Yes, Replace Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
